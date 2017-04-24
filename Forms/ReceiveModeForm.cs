@@ -39,10 +39,12 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
         // Messages
         //***************************
         private const string SelectBrokeredMessageInspector = "Select a BrokeredMessage inspector...";
+
+        private const string SelectEncryptionType = "Select an Encryption Type....";
         #endregion
 
         #region Public Constructor
-        public ReceiveModeForm(string message, int count, IEnumerable<string> brokeredMessageInspectors)
+        public ReceiveModeForm(string message, int count, IEnumerable<string> brokeredMessageInspectors, IEnumerable<string> encryptors)
         {
             InitializeComponent();
             Text = message;
@@ -58,6 +60,17 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
             {
                 cboReceiverInspector.Items.Add(messageInspectors[i]);
             }
+
+            cmbEncryptionType.Items.Add(SelectEncryptionType);
+            cmbEncryptionType.SelectedIndex = 0;
+            var messageEncryptors = encryptors as string[] ?? encryptors.ToArray();
+            if (encryptors != null || messageEncryptors.Any())
+            {
+                foreach (var encryptor in messageEncryptors)
+                {
+                    cmbEncryptionType.Items.Add(encryptor);
+                }
+            }
         }
         #endregion
 
@@ -72,6 +85,8 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
         public bool Peek { get; private set; }
         public bool All { get; private set; }
         public string Inspector { get; private set; }
+        public string Encryptor { get; private set; }
+        public string Key { get; private set; }
         #endregion
 
         #region Event Handlers
@@ -89,6 +104,13 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
             {
                 Inspector = cboReceiverInspector.Text;
             }
+
+            if (cmbEncryptionType.SelectedIndex > 0)
+            {
+                Encryptor = cmbEncryptionType.Text;
+            }
+
+            this.Key = txtEncryptionKey.Text;
             Close();
         }
 

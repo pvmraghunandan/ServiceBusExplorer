@@ -91,7 +91,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
         #endregion
 
         #region Public Constructor
-        public MessageForm(BrokeredMessage brokeredMessage, ServiceBusHelper serviceBusHelper, WriteToLogDelegate writeToLog)
+        public MessageForm(BrokeredMessage brokeredMessage, ServiceBusHelper serviceBusHelper, WriteToLogDelegate writeToLog, string text = null)
         {
             this.brokeredMessage = brokeredMessage;
             this.serviceBusHelper = serviceBusHelper;
@@ -103,7 +103,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
             messagePropertyGrid.SelectedObject = brokeredMessage;
 
             BodyType bodyType;
-            txtMessageText.Text = JsonSerializerHelper.Indent(XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out bodyType)));
+            txtMessageText.Text = string.IsNullOrWhiteSpace(text) ? JsonSerializerHelper.Indent(XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out bodyType))) : text;
 
             // Initialize the DataGridView.
             bindingSource.DataSource = new BindingList<MessagePropertyInfo>(brokeredMessage.Properties.Select(p => new MessagePropertyInfo(p.Key,

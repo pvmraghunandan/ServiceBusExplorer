@@ -385,7 +385,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
         {
             using (
                 var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromQueue, MainForm.SingletonMainForm.TopCount,
-                    serviceBusHelper.BrokeredMessageInspectors.Keys))
+                    serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() == DialogResult.OK)
                 {
@@ -541,7 +541,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         public void GetDeadletterMessages()
         {
-            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys))
+            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() != DialogResult.OK)
                 {
@@ -566,7 +566,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         public void GetTransferDeadletterMessages()
         {
-            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromTransferDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys))
+            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromTransferDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() != DialogResult.OK)
                 {

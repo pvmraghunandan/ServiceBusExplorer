@@ -30,6 +30,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -225,6 +226,8 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
         private readonly List<string> metricTabPageIndexList = new List<string>();
         private readonly ManualResetEvent metricsManualResetEvent = new ManualResetEvent(false);
         private bool buttonsMoved;
+        private IMessageEncryptor messageEncryptor;
+        private string encryptionKey;
         #endregion
 
         #region Private Static Fields
@@ -271,7 +274,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         public void GetMessages()
         {
-            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromSubscription, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys))
+            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromSubscription, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() == DialogResult.OK)
                 {
@@ -282,6 +285,11 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
                                            serviceBusHelper.BrokeredMessageInspectors.ContainsKey(receiveModeForm.Inspector) ?
                                            Activator.CreateInstance(serviceBusHelper.BrokeredMessageInspectors[receiveModeForm.Inspector]) as IBrokeredMessageInspector :
                                            null;
+                    this.messageEncryptor = !string.IsNullOrEmpty(receiveModeForm.Encryptor) &&
+                                           serviceBusHelper.MessageEncryptors.ContainsKey(receiveModeForm.Encryptor) ?
+                                           Activator.CreateInstance(serviceBusHelper.MessageEncryptors[receiveModeForm.Encryptor]) as IMessageEncryptor :
+                                           null;
+                    this.encryptionKey = receiveModeForm.Key;
                     if (subscriptionWrapper.TopicDescription.EnablePartitioning)
                     {
                         ReadMessagesOneAtTheTime(receiveModeForm.Peek, receiveModeForm.All, receiveModeForm.Count, messageInspector);
@@ -296,7 +304,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         public void GetDeadletterMessages()
         {
-            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys))
+            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() != DialogResult.OK)
                 {
@@ -309,6 +317,11 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
                                        serviceBusHelper.BrokeredMessageInspectors.ContainsKey(receiveModeForm.Inspector) ?
                     Activator.CreateInstance(serviceBusHelper.BrokeredMessageInspectors[receiveModeForm.Inspector]) as IBrokeredMessageInspector :
                     null;
+                this.messageEncryptor = !string.IsNullOrEmpty(receiveModeForm.Encryptor) &&
+                                           serviceBusHelper.MessageEncryptors.ContainsKey(receiveModeForm.Encryptor) ?
+                                           Activator.CreateInstance(serviceBusHelper.MessageEncryptors[receiveModeForm.Encryptor]) as IMessageEncryptor :
+                                           null;
+                this.encryptionKey = receiveModeForm.Key;
                 if (subscriptionWrapper.TopicDescription.EnablePartitioning)
                 {
                     ReadDeadletterMessagesOneAtTheTime(receiveModeForm.Peek, receiveModeForm.All, receiveModeForm.Count, messageInspector);
@@ -322,7 +335,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         public void GetTransferDeadletterMessages()
         {
-            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys))
+            using (var receiveModeForm = new ReceiveModeForm(RetrieveMessagesFromDeadletterQueue, MainForm.SingletonMainForm.TopCount, serviceBusHelper.BrokeredMessageInspectors.Keys, serviceBusHelper.MessageEncryptors.Keys))
             {
                 if (receiveModeForm.ShowDialog() != DialogResult.OK)
                 {
@@ -335,6 +348,11 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
                                        serviceBusHelper.BrokeredMessageInspectors.ContainsKey(receiveModeForm.Inspector) ?
                     Activator.CreateInstance(serviceBusHelper.BrokeredMessageInspectors[receiveModeForm.Inspector]) as IBrokeredMessageInspector :
                     null;
+                this.messageEncryptor = !string.IsNullOrEmpty(receiveModeForm.Encryptor) &&
+                                           serviceBusHelper.MessageEncryptors.ContainsKey(receiveModeForm.Encryptor) ?
+                                           Activator.CreateInstance(serviceBusHelper.MessageEncryptors[receiveModeForm.Encryptor]) as IMessageEncryptor :
+                                           null;
+                this.encryptionKey = receiveModeForm.Key;
                 if (subscriptionWrapper.TopicDescription.EnablePartitioning)
                 {
                     ReadDeadletterMessagesOneAtTheTime(receiveModeForm.Peek, receiveModeForm.All, receiveModeForm.Count, messageInspector);
@@ -2418,11 +2436,46 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
                 brokeredMessage = bindingList[e.RowIndex];
                 messagePropertyGrid.SelectedObject = brokeredMessage;
                 BodyType bodyType;
-                txtMessageText.Text = XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out bodyType));
+                var clonedMessage = brokeredMessage.Clone();
+                var decrytedMessage = this.GetDecryptedMessage(clonedMessage);
+                if (string.IsNullOrWhiteSpace(decrytedMessage))
+                {
+                    txtMessageText.Text = XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out bodyType));
+                }
+                else
+                {
+                    txtMessageText.Text = decrytedMessage;
+                }
+
                 var listViewItems = brokeredMessage.Properties.Select(p => new ListViewItem(new[] { p.Key, Convert.ToString(p.Value) })).ToArray();
                 messagePropertyListView.Items.Clear();
                 messagePropertyListView.Items.AddRange(listViewItems);
             }
+        }
+
+        private string GetDecryptedMessage(BrokeredMessage message)
+        {
+            var aesMessageEncryptor = this.messageEncryptor as AesEncryptor;
+            if (aesMessageEncryptor != null && !string.IsNullOrWhiteSpace(this.encryptionKey))
+            {
+                try
+                {
+                    var data = message.GetBody<byte[]>();
+                    var ivBytes = Convert.FromBase64String(message.Properties["InitializationVector"].ToString());
+                    aesMessageEncryptor.SetKey(this.encryptionKey);
+                    aesMessageEncryptor.InitializationVector = ivBytes;
+                    var decryptedData = aesMessageEncryptor.DecryptMessagePayload(new MemoryStream(data), null);
+
+                    // Deserialize Payload
+                    return  Encoding.UTF8.GetString(decryptedData.Array);
+                }
+                catch (Exception)
+                {
+                    // Ignore
+                }
+            }
+
+            return null;
         }
 
         private void tabPageMessages_Resize(object sender, EventArgs e)
@@ -2760,7 +2813,8 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
             {
                 return;
             }
-            using (var messageForm = new MessageForm(bindingList[e.RowIndex], serviceBusHelper, writeToLog))
+            var clonedMessage = bindingList[e.RowIndex].Clone();
+            using (var messageForm = new MessageForm(bindingList[e.RowIndex], serviceBusHelper, writeToLog, this.GetDecryptedMessage(clonedMessage)))
             {
                 messageForm.ShowDialog();
             }

@@ -329,6 +329,8 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
             GetEventDataGeneratorsFromConfiguration();
             GetServiceBusNamespaceSettingsFromConfiguration();
             ReadEventHubPartitionCheckpointFile();
+            serviceBusHelper.MessageEncryptors = new Dictionary<string, Type>();
+            serviceBusHelper.MessageEncryptors.Add("AES", typeof(AesEncryptor));
         }
 
         /// <summary>

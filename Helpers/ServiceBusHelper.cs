@@ -248,6 +248,7 @@ namespace Microsoft.Azure.ServiceBusExplorer
             SharedAccessKey = serviceBusHelper.SharedAccessKey;
             SharedAccessKeyName = serviceBusHelper.SharedAccessKeyName;
             TransportType = serviceBusHelper.TransportType;
+            MessageEncryptors = serviceBusHelper.MessageEncryptors;
         }
         #endregion
 
@@ -649,7 +650,12 @@ namespace Microsoft.Azure.ServiceBusExplorer
         /// Gets or sets the dictionary containing EventData generators.
         /// </summary>
         public Dictionary<string, Type> EventDataGenerators { get; set; }
-        
+
+        /// <summary>
+        /// Gets or sets the dictionary containing BrokeredMessage inspectors.
+        /// </summary>
+        public Dictionary<string, Type> MessageEncryptors { get; set; }
+
         #endregion
 
         #region Public Static Properties
