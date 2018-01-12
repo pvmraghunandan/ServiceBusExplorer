@@ -38,13 +38,8 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
         //***************************
         // Messages
         //***************************
-<<<<<<< HEAD:Forms/ReceiveModeForm.cs
-        private const string SelectBrokeredMessageInspector = "Select a BrokeredMessage inspector...";
-
         private const string SelectEncryptionType = "Select an Encryption Type....";
-=======
         const string SelectBrokeredMessageInspector = "Select a BrokeredMessage inspector...";
->>>>>>> d99a071d9a485f96d5e9bc122f954533212f7ead:src/ServiceBusExplorer/Forms/ReceiveModeForm.cs
         #endregion
 
         #region Public Constructor
@@ -68,12 +63,9 @@ namespace Microsoft.Azure.ServiceBusExplorer.Forms
             cmbEncryptionType.Items.Add(SelectEncryptionType);
             cmbEncryptionType.SelectedIndex = 0;
             var messageEncryptors = encryptors as string[] ?? encryptors.ToArray();
-            if (encryptors != null || messageEncryptors.Any())
+            foreach (var encryptor in messageEncryptors)
             {
-                foreach (var encryptor in messageEncryptors)
-                {
-                    cmbEncryptionType.Items.Add(encryptor);
-                }
+                cmbEncryptionType.Items.Add(encryptor);
             }
         }
         #endregion

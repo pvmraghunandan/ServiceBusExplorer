@@ -440,7 +440,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
-                var count = 0;
+                int count;
                 var entityPath = SubscriptionClient.FormatSubscriptionPath(subscriptionWrapper.SubscriptionDescription.TopicPath, subscriptionWrapper.SubscriptionDescription.Name);
                 var messagingFactory = MessagingFactory.CreateFromConnectionString(serviceBusHelper.ConnectionString);
                 if (subscriptionWrapper.SubscriptionDescription.RequiresSession)
@@ -510,7 +510,7 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
 
         private async Task<int> PurgeNonSessionedTopic(string entityPath, MessagingFactory messagingFactory)
         {
-            int totalMessagesPurged = 0;
+            var totalMessagesPurged = 0;
             var receiver = await messagingFactory.CreateMessageReceiverAsync(entityPath, ReceiveMode.ReceiveAndDelete).ConfigureAwait(false);
 
             try
@@ -2499,22 +2499,18 @@ namespace Microsoft.Azure.ServiceBusExplorer.Controls
             {
                 brokeredMessage = bindingList[e.RowIndex];
                 messagePropertyGrid.SelectedObject = brokeredMessage;
-<<<<<<< HEAD:Controls/HandleSubscriptionControl.cs
-                BodyType bodyType;
                 var clonedMessage = brokeredMessage.Clone();
                 var decrytedMessage = this.GetDecryptedMessage(clonedMessage);
                 if (string.IsNullOrWhiteSpace(decrytedMessage))
                 {
-                    txtMessageText.Text = XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out bodyType));
+                    txtMessageText.Text = XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out _));
                 }
                 else
                 {
                     txtMessageText.Text = decrytedMessage;
                 }
 
-=======
                 txtMessageText.Text = XmlHelper.Indent(serviceBusHelper.GetMessageText(brokeredMessage, out _));
->>>>>>> d99a071d9a485f96d5e9bc122f954533212f7ead:src/ServiceBusExplorer/Controls/HandleSubscriptionControl.cs
                 var listViewItems = brokeredMessage.Properties.Select(p => new ListViewItem(new[] { p.Key, Convert.ToString(p.Value) })).ToArray();
                 messagePropertyListView.Items.Clear();
                 messagePropertyListView.Items.AddRange(listViewItems);
