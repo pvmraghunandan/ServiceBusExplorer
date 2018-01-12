@@ -1,9 +1,32 @@
+init:
+- git config --global core.autocrlf false
+
+skip_tags: true
+skip_commits:
+  files:
+    - '**/*.md'
+    - '**/images/*'
+    - '**/icons/*'
+
+image: Visual Studio 2017
+
+assembly_info:
+  patch: false
+
+environment:
+  choco_token:
+    secure: 68Fr+kbT0ilhb84AyU/kKVWJw74urnreRDCpZ2L89v0cJeuEGcOchKGIFsy4Hp+V
+
 #---------------------------------#
 #       restore nuget packages    #
 #---------------------------------#
 before_build:
-  - nuget restore
-  
+  - nuget restore src\ServiceBusExplorer.sln
+  - cmd: echo %appveyor_build_version%
+  - ps: gitversion /l console /output buildserver /updateAssemblyInfo
+  - cmd: echo %appveyor_build_version%
+  - cmd: ECHO %GitVersion_MajorMinorPatch%
+
 #---------------------------------#
 #       build configuration       #
 #---------------------------------#
@@ -11,32 +34,12 @@ before_build:
 # build platform, i.e. x86, x64, Any CPU. This setting is optional.
 platform: Any CPU
 
-# to add several platforms to build matrix:
-#platform:
-#  - x86
-#  - Any CPU
-
 # build Configuration, i.e. Debug, Release, etc.
 configuration: Release
 
-# versioning
-version: '4.0.{build}'
-
-assembly_info:
-  patch: true
-  file: '**\AssemblyInfo.*'
-  assembly_version: '{version}'
-  assembly_file_version: '{version}'
-  assembly_informational_version: '{version}'
-
-# to add several configurations to build matrix:
-#configuration:
-#  - Debug
-#  - Release
-
 build:
   parallel: true                     # enable MSBuild parallel builds
-  project: ServiceBusExplorer.csproj # path to Visual Studio project
+  project: src\ServiceBusExplorer.sln # path to Visual Studio project
 
   # MSBuild verbosity level
   verbosity: normal                  # quiet|minimal|normal|detailed
@@ -46,15 +49,35 @@ build:
 #---------------------------------#
 
 after_build:
-  7z a ServiceBusExplorer.zip %APPVEYOR_BUILD_FOLDER%\bin\Release\*.*
+  - ps: >-
+      # Remove ALL xml files.
+      Push-Location $($env:APPVEYOR_BUILD_FOLDER)\src\ServiceBusExplorer\bin\Release
+        Get-ChildItem -Include *.xml -Recurse | % { Remove-Item $_.FullName }
+      Pop-Location
+  - ps: >-
+      # Reset VERIFICATION file.
+      (Set-Content -Value "VERIFICATION=MD5" -Path $env:APPVEYOR_BUILD_FOLDER\VERIFICATION.txt)
+  - ps: .\Generate-VerificationFile.ps1 -Version $env:GitVersion_MajorMinorPatch -TemplateFilePath VERIFICATION-Template.txt -ExePath "$($env:APPVEYOR_BUILD_FOLDER)\src\ServiceBusExplorer\bin\Release\ServiceBusExplorer.exe" -OutputFilePath "$($env:APPVEYOR_BUILD_FOLDER)\src\ServiceBusExplorer\bin\Release\VERIFICATION.txt"
+  - 7z a ServiceBusExplorer-%GitVersion_MajorMinorPatch%.zip %APPVEYOR_BUILD_FOLDER%\src\ServiceBusExplorer\bin\Release\*.*
+  - ps: (Get-Content $env:APPVEYOR_BUILD_FOLDER\src\ServiceBusExplorer\ServiceBusExplorer.nuspec).Replace("`$version`$", "$env:GitVersion_MajorMinorPatch") | Set-Content $env:APPVEYOR_BUILD_FOLDER\src\ServiceBusExplorer\ServiceBusExplorer.nuspec
+  - appveyor-retry choco pack %APPVEYOR_BUILD_FOLDER%\src\ServiceBusExplorer\ServiceBusExplorer.nuspec
+
+#---------------------------------#
+#      after build - on_success   #
+#---------------------------------#
+
+on_success:
+  - IF '%APPVEYOR_REPO_BRANCH%'=='master' IF '%APPVEYOR_PULL_REQUEST_NUMBER%'=='' appveyor-retry choco push ServiceBusExplorer.%GitVersion_MajorMinorPatch%.nupkg -k="'%choco_token%'"
 
 #---------------------------------#
 #      artifacts configuration    #
 #---------------------------------#
 
 artifacts:
-  - path: ServiceBusExplorer.zip  # bin\$(configuration)\*.*
-    name: ServiceBusExplorer
+  - path: '*.zip'  # bin\$(configuration)\*.*
+    name: 'ServiceBusExplorer-%GitVersion_MajorMinorPatch%'
+  - path: '*.nupkg'
+    name: 'ServiceBusExplorer-Chocolatey-%GitVersion_MajorMinorPatch%'
 
 #---------------------------------#
 #     GitHub PR notifications     #
@@ -75,7 +98,9 @@ deploy:
     auth_token:
       secure: SDw1gs4noXA0eUpBoBcbT2XNYwf0Bg7gHR/TpP2Y/gQS/QYST7toE0oRzoKV/2U6 # encrypted token from GitHub
     artifact: /.*\.*/           # upload all NuGet packages to release assets
+    description: ServiceBus Explorer build %APPVEYOR_BUILD_VERSION%.
     draft: false
     prerelease: false
+    tag: $(GitVersion_MajorMinorPatch)
     on:
       branch: master                # release from master branch only
